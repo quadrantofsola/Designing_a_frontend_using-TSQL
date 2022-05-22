@@ -1,0 +1,308 @@
+
+CREATE DATABASE MichaelChildPoverty
+GO
+
+
+USE [MichaelChildPoverty]
+GO
+
+-- Import all the four countries data through SQL Import wizard and store each country data into relevant coontry table name ethiopiaData, peruData, indiaData and vietnamData.
+
+
+-- Deletes unnecessary data from indiaData table.
+delete from indiaData where childid = 'childid';
+
+
+-- Procedure to create and load reference tables.
+
+CREATE procedure ProcLoadCreateReferenceTables  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			CREATE TABLE refUnderweight (Value float, Label nvarchar(255));
+			CREATE TABLE refStunting (Value float, Label nvarchar(255));
+			CREATE TABLE refThinness (Value float, Label nvarchar(255));
+			CREATE TABLE refCountry(code varchar(50) NOT NULL PRIMARY KEY,name nchar(20) NULL);
+			CREATE TABLE refCohort (Value Float, Label Varchar(20));
+
+
+			INSERT INTO refUnderweight (Value, Label) VALUES (0, 'not underweight'), (1, 'moderately underweight'), (2, 'severely underweight');
+
+			INSERT INTO refStunting (Value, Label) VALUES (0, 'not stunted'), (1, 'moderately stunted'), (2, 'severely stunted');
+
+			INSERT INTO refThinness (Value, Label) VALUES (0, 'not thin'), (1, 'moderately thin'), (2,	'severely thin');
+
+			INSERT INTO refCountry (code, name) VALUES ('PE', 'Peru'), ('VN', 'Vietnam'), ('ET', 'Ethiopia'), ('IN', 'India');
+
+			INSERT INTO refCohort (Value, Label) Values (0, 'older'), (1, 'younger');
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+-- Procedure to create childrenInfo table.
+
+CREATE procedure ProcCreatecChildrenInfo  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			create table childrenInfo(childid varchar(50), cohort float,child_sex float ,child_language float,chethnic float,chldrel float,country varchar(50), CONSTRAINT PK_ChildID primary key(childid), FOREIGN KEY(country) REFERENCES refCountry(code));
+
+			INSERT INTO childrenInfo select childid, yc, chsex,chlang, chethnic, chldrel, country from 
+				(select childid, yc, chsex,chlang, chethnic, chldrel, left(childid,2) as country from ethiopiaData
+				UNION ALL
+				select childid, yc, chsex,chlang, chethnic, chldrel, left(childid,2) as country from peruData
+				UNION ALL
+				select childid, yc, chsex,chlang, chethnic, chldrel, left(childid,2) as country from indiaData
+				UNION ALL
+				select childid, yc, chsex,chlang, chethnic, chldrel, left(childid,2) as country from vietnamData) q 
+
+				group by childid, yc, chsex,chlang, chethnic, chldrel, country;
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+-- Procedure to create childrenUnderweightInformation table.
+
+CREATE procedure ProcChildrenUnderweightInformation  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			create table childrenUnderweightInformation(childid varchar(50) NOT NULL, surveyRound float, chweight float NULL, chheight float NULL, bmi float NULL, underweight float NULL, thinness float NULL, PRIMARY KEY (childid,surveyRound), FOREIGN KEY(childid) REFERENCES childrenInfo(childid));
+
+
+			INSERT INTO childrenUnderweightInformation select childid, [round], chweight, chheight, bmi, underweight, thinness  from 
+				(select childid, [round], chweight, chheight, bmi, underweight, thinness from ethiopiaData
+				UNION ALL
+				select childid, [round], chweight, chheight, bmi, underweight, thinness from peruData
+				UNION ALL
+				select childid, [round], chweight, chheight, bmi, underweight, thinness from indiaData
+				UNION ALL
+				select childid, [round], chweight, chheight, bmi, underweight, thinness from vietnamData) q;
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+-- Procedure to create childrenStuntingInformation table.
+
+CREATE procedure ProcChildrenStuntingInformation  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			create table childrenStuntingInformation(childid varchar(50) NOT NULL, surveyRound float, height_for_age_z_score float NULL, height_for_age_flag float NULL, stunting float NULL, PRIMARY KEY (childid,surveyRound),FOREIGN KEY(childid) REFERENCES childrenInfo(childid));
+
+
+			INSERT INTO childrenStuntingInformation select childid, [round], zhfa, fhfa, stunting  from 
+				(select childid, [round], zhfa, fhfa, stunting from ethiopiaData
+				UNION ALL
+				select childid, [round], zhfa, fhfa, stunting from peruData
+				UNION ALL
+				select childid, [round], zhfa, fhfa, stunting from indiaData
+				UNION ALL
+				select childid, [round], zhfa, fhfa, stunting from vietnamData) q;
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+-- Procedure to create childrenDrugInformation table.
+
+CREATE procedure ProcChildrenDrugInformation  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			create table childrenDrugInformation(childid varchar(50),surveyRound float,smoking_level float,is_alcoholic float, ch_health_with_peers float, ch_health float, PRIMARY KEY (childid,surveyRound),FOREIGN KEY (childid) REFERENCES childrenInfo(childid));
+
+
+			INSERT INTO childrenDrugInformation select childid, [round], chsmoke, chalcohol, chhrel, chhealth  from 
+				(select childid, [round], chsmoke,chalcohol, chhrel, chhealth from ethiopiaData
+				UNION ALL
+				select childid, [round], chsmoke,chalcohol, chhrel, chhealth from peruData
+				UNION ALL
+				select childid, [round], chsmoke,chalcohol, chhrel, chhealth from indiaData
+				UNION ALL
+				select childid, [round], chsmoke,chalcohol, chhrel, chhealth from vietnamData) q;
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+-- Procedure to create childrenHouseNecessityInformation table.
+
+CREATE procedure ProcChildrenHouseNecessityInformation  AS
+BEGIN
+		BEGIN TRANSACTION			
+
+			create table childrenHouseNecessityInformation(childid varchar(50),surveyRound float,is_cooking_gas_available float, is_water_available float, is_sanitation_available float, is_electricity_available float, PRIMARY KEY (childid,surveyRound),FOREIGN KEY (childid) REFERENCES childrenInfo(childid));
+
+
+			INSERT INTO childrenHouseNecessityInformation select childid, [round], cookingq, drwaterq, toiletq, elecq from 
+				(select childid, [round], cookingq, drwaterq, toiletq, elecq from ethiopiaData
+				UNION ALL
+				select childid, [round], cookingq, drwaterq, toiletq, elecq from peruData
+				UNION ALL
+				select childid, [round], cookingq, drwaterq, toiletq, elecq from indiaData
+				UNION ALL
+				select childid, [round], cookingq_new, drwaterq_new, toiletq_new, elecq_new from vietnamData) q;
+
+		COMMIT TRANSACTION
+END
+Go
+
+
+
+
+
+-- Executing all the procedures in sequence to create relevant tables required to create poverty reports.
+
+EXEC ProcLoadCreateReferenceTables;
+EXEC ProcCreatecChildrenInfo;
+EXEC ProcChildrenUnderweightInformation;
+EXEC ProcChildrenStuntingInformation;
+EXEC ProcChildrenDrugInformation;
+EXEC ProcChildrenHouseNecessityInformation;
+
+
+
+
+
+-- VIEWS created for different Reports
+
+
+
+--1) Underweight Report for all the children (including younger and older cohort) in four countries (in all survey rounds).
+
+CREATE VIEW childrenUnderweightReport AS
+select q.Country, q.childUnderweightCondition, count(*) as [Count] from (select d.childid, d.chweight, isnull(und.Label, 'Not Available') as childUnderweightCondition, 
+    ci.Label as cohort, ct.name as Country from childrenUnderweightInformation  d
+        INNER JOIN childrenInfo ch on ch.childid=d.childid
+        LEFT JOIN refUnderweight und on und.Value=d.underweight
+        LEFT JOIN refCohort ci on ci.value=ch.cohort
+        LEFT JOIN refCountry ct on ct.code=ch.country) q 
+        group by q.Country, q.childUnderweightCondition;
+
+
+--2) Thinness Report for all the children (including younger and older cohort) in four countries (in all survey rounds).
+
+CREATE VIEW childrenThinnessReport AS
+select a.Country, a.childThinnessCondition, count(*) as [ThinnessCount] from 
+    (select d.childid, d.chweight, isnull(unt.Label, 'Not Available') as childThinnessCondition, 
+    ci.Label as cohort, ct.name as Country from childrenUnderweightInformation  d
+        INNER JOIN childrenInfo ch on ch.childid=d.childid
+        LEFT JOIN refThinness unt on unt.Value=d.underweight
+        LEFT JOIN refCohort ci on ci.value=ch.cohort
+        LEFT JOIN refCountry ct on ct.code=ch.country) a 
+        group by a.Country, a.childThinnessCondition;
+
+
+--3) Stunting Report for all the children (including younger and older cohort) in four countries (in all survey rounds).
+
+CREATE VIEW childrenStuntinReport AS
+select a.Country, a.childStuntingCondition, count(*) as StuntingCount from 
+    (select d.childid, d.height_for_age_z_score, isnull(st.Label, 'Not Available') as childStuntingCondition, 
+    ci.Label as cohort, ct.name as Country from childrenStuntingInformation  d
+        INNER JOIN childrenInfo ch on ch.childid=d.childid
+        LEFT JOIN refStunting st on st.Value=d.stunting
+        LEFT JOIN refCohort ci on ci.value=ch.cohort
+        LEFT JOIN refCountry ct on ct.code=ch.country) a 
+        group by a.Country, a.childStuntingCondition;
+
+
+
+--4) Alcohol Report for all the children based on their cohort in four countries (in all survey rounds).
+
+create view ChildrenAlcoholRepoprt as
+select q.Country, q.cohort, count(*) as AlcoholicChildCount from 
+	(select d.childid, d.is_alcoholic,ci.Label as cohort ,ct.name as Country from childrenDrugInformation  d
+	LEFT JOIN childrenInfo ch on ch.childid=d.childid
+	LEFT JOIN refCohort ci on ci.value=ch.cohort
+	LEFT JOIN refCountry ct on ct.code=ch.country where d.is_alcoholic>0) q group by q.Country, q.cohort;
+
+
+
+--5) Smoking Report for all the children based on their cohort in four countries (in all survey rounds).
+
+create view viewChildrenSmokingReport as 
+select a.Country, a.cohort, count(*) as SmokingChildCount from 
+	(select d.childid, d.smoking_level,ci.Label as cohort ,ct.name as Country from childrenDrugInformation  d
+	LEFT JOIN childrenInfo ch on ch.childid=d.childid
+	LEFT JOIN refCohort ci on ci.value=ch.cohort
+	LEFT JOIN refCountry ct on ct.code =ch.country where d.smoking_level>0) a
+	group by a.Country, a.cohort;
+
+
+
+--6) Alcohol and Smoking Combined Report for all the children based on their cohort in four countries (in all survey rounds).
+
+create view ChildrenAlcoholAndSmokingReport as 
+
+	select q1.Country, q1.cohort, q1.AlcoholicChildCount, a1.SmokingChildCount from 
+
+	(select q.Country, q.cohort, count(*) as AlcoholicChildCount from 
+	(select d.childid, d.is_alcoholic,ci.Label as cohort ,ct.name as Country from childrenDrugInformation  d
+	LEFT JOIN childrenInfo ch on ch.childid=d.childid
+	LEFT JOIN refCohort ci on ci.value=ch.cohort
+	LEFT JOIN refCountry ct on ct.code=ch.country where d.is_alcoholic>0) q group by q.Country, q.cohort) q1
+
+	INNER JOIN
+
+	(select a.Country, a.cohort, count(*) as SmokingChildCount from 
+	(select d.childid, d.smoking_level,ci.Label as cohort ,ct.name as Country from childrenDrugInformation  d
+	LEFT JOIN childrenInfo ch on ch.childid=d.childid
+	LEFT JOIN refCohort ci on ci.value=ch.cohort
+	LEFT JOIN refCountry ct on ct.code =ch.country where d.smoking_level>0) a
+	group by a.Country, a.cohort) a1 ON q1.Country=a1.Country and q1.cohort=a1.cohort;
+
+
+
+
+--7) Cooking Gas Report for all the children (including younger and older cohort) in four countries based on different survey rounds.
+
+create view HouseNecessityReport as
+
+	select q1.country, q1.surveyRound, q1.no_gas_count, t1.total_count from
+	(select q.country,q.surveyRound,count(*) as no_gas_count from ( 
+	select d.childid, d.is_cooking_gas_available ,ct.name as country,d.surveyRound 
+	from childrenHouseNecessityInformation d
+	LEFT JOIN childrenInfo ch on ch.childid=d.childid
+	LEFT JOIN refCountry ct on ct.code=ch.country 
+	where d.is_cooking_gas_available is not null and d.is_cooking_gas_available=0) q group by q.country,q.surveyRound) q1
+
+
+	INNER JOIN
+
+	(select t.country, t.surveyRound, count(*) as total_count from
+	(select co.name as country, coh.value as cohort, v.surveyRound from childrenInfo ch 
+	LEFT JOIN childrenHouseNecessityInformation v ON ch.childid=v.childid
+	LEFT JOIN refCountry co ON ch.country=co.code
+	LEFT JOIN refCohort coh ON coh.value=ch.cohort)t group by t.country, t.surveyRound) t1 ON q1.country=t1.country and q1.surveyRound=t1.surveyRound;
+
+
+
+-- Checking the results of all the Child Poverty Reports by selecting data from views.
+
+select * from ChildrenAlcoholAndSmokingReport order by Country;
+
+select * from ChildrenAlcoholRepoprt order by Country;
+
+select * from childrenStuntinReport order by Country;
+
+select * from childrenThinnessReport order by Country;
+
+select * from childrenUnderweightReport order by Country;
+
+select * from HouseNecessityReport;
+
+select * from viewChildrenSmokingReport order by Country;
